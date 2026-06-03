@@ -1,0 +1,31 @@
+const parentId = 1;
+
+const folders = [
+  "Arrays & Hashing",
+  "Two Pointers",
+  "Stack",
+  "Binary Search",
+  "Sliding Window",
+  "Linked List",
+  "Trees",
+  "Tries",
+  "Heap / Priority Queue",
+  "Backtracking",
+  "Graphs",
+  "Advanced Graphs",
+  "1D Dynamic Programming",
+  "2D Dynamic Programming",
+  "Greedy",
+  "Intervals",
+  "Math & Geometry",
+  "Bit Manipulation",
+];
+
+for (const name of folders) {
+  await window.__TAURI_INTERNALS__.invoke('create_folder', {
+    payload: { name, parent_id: parentId }
+  });
+  console.log(`Created: ${name}`);
+}
+
+console.log("Done. Reload the sidebar to see all folders.");
