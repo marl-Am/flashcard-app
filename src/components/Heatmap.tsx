@@ -1,14 +1,28 @@
 import { useEffect, useState } from 'react';
+import type { ReactElement } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { ActivityCalendar } from 'react-activity-calendar';
+import type { DayActivity } from '../types';
 
-interface DayActivity {
-  date: string;
-  count: number;
-  level: number;
+/** Mirrors the level colours used elsewhere in the dark theme. */
+const DARK_LEVEL_COLOURS: readonly string[] = [
+  '#1a1a1a',
+  '#0e4429',
+  '#006d32',
+  '#26a641',
+  '#39d353',
+];
+
+/** Local calendar date as YYYY-MM-DD. Using toISOString directly would
+ *  report the UTC day, which is wrong either side of midnight. */
+function localIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
-export function Heatmap() {
+export function Heatmap(): ReactElement {
   const [data, setData] = useState<DayActivity[]>([]);
 
   useEffect(() => {
@@ -17,8 +31,7 @@ export function Heatmap() {
         // react-activity-calendar requires at least one entry
         // pad with today at level 0 if the DB is empty
         if (result.length === 0) {
-          const today = new Date().toISOString().split('T')[0];
-          setData([{ date: today, count: 0, level: 0 }]);
+          setData([{ date: localIsoDate(new Date()), count: 0, level: 0 }]);
         } else {
           setData(result);
         }
@@ -33,9 +46,7 @@ export function Heatmap() {
         <ActivityCalendar
           data={data}
           colorScheme="dark"
-          theme={{
-            dark: ['#1a1a1a', '#0e4429', '#006d32', '#26a641', '#39d353'],
-          }}
+          theme={{ dark: [...DARK_LEVEL_COLOURS] }}
         />
       )}
     </div>

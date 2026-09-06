@@ -16,7 +16,6 @@ body {
 /* ── Sidebar ── */
 .sidebar {
   background: #1a1a1a;
-  border-right: none;
   display: flex;
   flex-direction: column;
   padding: 16px 0;

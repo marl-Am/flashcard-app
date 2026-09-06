@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import type { ReactElement } from 'react';
 import { FolderSidebar } from './components/FolderSidebar';
 import { CardReview } from './components/CardReview';
 import { CardEditor } from './components/CardEditor';
@@ -6,28 +7,57 @@ import { CardBrowser } from './components/CardBrowser';
 import { Heatmap } from './components/Heatmap';
 import { StreakCounter } from './components/StreakCounter';
 import { ReviewAll } from './components/ReviewAll';
-import './App.css';
+import type { View } from './types';
 
-export type View = 'review' | 'reviewall' | 'heatmap' | 'editor' | 'browse';
+export type { View };
 
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 480;
 const DEFAULT_WIDTH = 240;
 
-export default function App() {
+/** Views that operate on a single folder, with the prompt shown when none is
+ *  selected. `heatmap` is absent because it is application-wide. */
+type FolderView = Exclude<View, 'heatmap'>;
+
+const FOLDER_PROMPTS: Record<FolderView, string> = {
+  review: 'Select a folder to start reviewing.',
+  reviewall: 'Select a folder to review all its cards.',
+  editor: 'Select a folder first.',
+  browse: 'Select a folder to browse its cards.',
+};
+
+const NAV_ITEMS: ReadonlyArray<{ view: View; label: string }> = [
+  { view: 'review', label: 'Review Due' },
+  { view: 'reviewall', label: 'Review All' },
+  { view: 'editor', label: 'Add Card' },
+  { view: 'browse', label: 'Browse' },
+  { view: 'heatmap', label: 'Heatmap' },
+];
+
+function renderFolderView(view: FolderView, folderId: number): ReactElement {
+  switch (view) {
+    case 'review':
+      return <CardReview folderId={folderId} />;
+    case 'reviewall':
+      return <ReviewAll folderId={folderId} />;
+    case 'editor':
+      return <CardEditor folderId={folderId} />;
+    case 'browse':
+      return <CardBrowser folderId={folderId} />;
+  }
+}
+
+export default function App(): ReactElement {
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [view, setView] = useState<View>('review');
-  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH);
-  const isDragging = useRef(false);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(DEFAULT_WIDTH);
 
-  const startDrag = useCallback((e: React.MouseEvent) => {
+  const startDrag = useCallback((e: React.MouseEvent): void => {
     e.preventDefault();
-    isDragging.current = true;
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
 
-    const onMove = (moveEvent: MouseEvent) => {
-      if (!isDragging.current) return;
+    const onMove = (moveEvent: MouseEvent): void => {
       const newWidth = Math.min(
         MAX_WIDTH,
         Math.max(MIN_WIDTH, moveEvent.clientX)
@@ -35,8 +65,7 @@ export default function App() {
       setSidebarWidth(newWidth);
     };
 
-    const onUp = () => {
-      isDragging.current = false;
+    const onUp = (): void => {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       window.removeEventListener('mousemove', onMove);
@@ -46,6 +75,16 @@ export default function App() {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   }, []);
+
+  const renderMain = (): ReactElement => {
+    if (view === 'heatmap') {
+      return <Heatmap />;
+    }
+    if (selectedFolderId === null) {
+      return <div className="placeholder">{FOLDER_PROMPTS[view]}</div>;
+    }
+    return renderFolderView(view, selectedFolderId);
+  };
 
   return (
     <div className="app-layout">
@@ -63,31 +102,14 @@ export default function App() {
           selectedFolderId={selectedFolderId}
         />
         <div className="sidebar-nav">
-          <button
-            onClick={() => setView('review')}
-            className={view === 'review' ? 'active' : ''}>
-            Review Due
-          </button>
-          <button
-            onClick={() => setView('reviewall')}
-            className={view === 'reviewall' ? 'active' : ''}>
-            Review All
-          </button>
-          <button
-            onClick={() => setView('editor')}
-            className={view === 'editor' ? 'active' : ''}>
-            Add Card
-          </button>
-          <button
-            onClick={() => setView('browse')}
-            className={view === 'browse' ? 'active' : ''}>
-            Browse
-          </button>
-          <button
-            onClick={() => setView('heatmap')}
-            className={view === 'heatmap' ? 'active' : ''}>
-            Heatmap
-          </button>
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.view}
+              onClick={() => setView(item.view)}
+              className={view === item.view ? 'active' : ''}>
+              {item.label}
+            </button>
+          ))}
         </div>
       </aside>
 
@@ -98,39 +120,7 @@ export default function App() {
         title="Drag to resize"
       />
 
-      <main className="main-content">
-        {view === 'review' &&
-          (selectedFolderId ? (
-            <CardReview folderId={selectedFolderId} />
-          ) : (
-            <div className="placeholder">
-              Select a folder to start reviewing.
-            </div>
-          ))}
-        {view === 'reviewall' &&
-          (selectedFolderId ? (
-            <ReviewAll folderId={selectedFolderId} />
-          ) : (
-            <div className="placeholder">
-              Select a folder to review all its cards.
-            </div>
-          ))}
-        {view === 'editor' &&
-          (selectedFolderId ? (
-            <CardEditor folderId={selectedFolderId} />
-          ) : (
-            <div className="placeholder">Select a folder first.</div>
-          ))}
-        {view === 'browse' &&
-          (selectedFolderId ? (
-            <CardBrowser folderId={selectedFolderId} />
-          ) : (
-            <div className="placeholder">
-              Select a folder to browse its cards.
-            </div>
-          ))}
-        {view === 'heatmap' && <Heatmap />}
-      </main>
+      <main className="main-content">{renderMain()}</main>
     </div>
   );
 }

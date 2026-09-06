@@ -1,59 +1,31 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-
-interface Card {
-  id: number;
-  folder_id: number;
-  front: string;
-  back: string;
-  due_date: string;
-  interval_days: number;
-  ease_factor: number;
-  review_count: number;
-}
-
-interface UpdateCard {
-  id: number;
-  front: string;
-  back: string;
-}
+import { useEffect, useState } from 'react';
+import type { ReactElement } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { renderContent } from '../lib/cardContent';
+import type { Card, UpdateCard } from '../types';
 
 interface Props {
   folderId: number;
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function renderContent(text: string): string {
-  return text
-    .replace(
-      /```(\w*)\n?([\s\S]*?)```/g,
-      (_: string, lang: string, code: string) =>
-        `<pre class="code-block"><code class="lang-${lang}">${escapeHtml(code.trim())}</code></pre>`
-    )
-    .replace(/\n/g, "<br />");
-}
-
 function formatDate(iso: string): string {
-  const d = new Date(iso + "Z"); // SQLite stores UTC, append Z
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const d = new Date(iso + 'Z'); // SQLite stores UTC, append Z
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
-export function CardBrowser({ folderId }: Props) {
+export function CardBrowser({ folderId }: Props): ReactElement {
   const [cards, setCards] = useState<Card[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editFront, setEditFront] = useState("");
-  const [editBack, setEditBack] = useState("");
-  const [search, setSearch] = useState("");
+  const [editFront, setEditFront] = useState<string>('');
+  const [editBack, setEditBack] = useState<string>('');
+  const [search, setSearch] = useState<string>('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  const loadCards = () => {
+  const loadCards = (): void => {
     invoke<Card[]>('get_all_cards', { folderId })
       .then(setCards)
       .catch(console.error);
@@ -62,41 +34,58 @@ export function CardBrowser({ folderId }: Props) {
   useEffect(() => {
     loadCards();
     setEditingId(null);
-    setSearch("");
+    setSearch('');
     setExpandedId(null);
   }, [folderId]);
 
-  const startEdit = (card: Card) => {
+  const startEdit = (card: Card): void => {
     setEditingId(card.id);
     setEditFront(card.front);
     setEditBack(card.back);
     setExpandedId(null);
   };
 
-  const cancelEdit = () => {
+  const cancelEdit = (): void => {
     setEditingId(null);
-    setEditFront("");
-    setEditBack("");
+    setEditFront('');
+    setEditBack('');
   };
 
-  const saveEdit = async (id: number) => {
-    if (!editFront.trim() || !editBack.trim()) return;
-    const payload: UpdateCard = { id, front: editFront.trim(), back: editBack.trim() };
-    await invoke("update_card", { payload });
-    cancelEdit();
-    loadCards();
+  const saveEdit = async (id: number): Promise<void> => {
+    if (!editFront.trim() || !editBack.trim()) {
+      return;
+    }
+    const payload: UpdateCard = {
+      id,
+      front: editFront.trim(),
+      back: editBack.trim(),
+    };
+    try {
+      await invoke('update_card', { payload });
+      cancelEdit();
+      loadCards();
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Delete this card? This cannot be undone.")) return;
-    await invoke('delete_card', { id });
-    loadCards();
+  const handleDelete = async (id: number): Promise<void> => {
+    if (!window.confirm('Delete this card? This cannot be undone.')) {
+      return;
+    }
+    try {
+      await invoke('delete_card', { id });
+      loadCards();
+    } catch (error) {
+      console.error(error);
+    }
   };
 
+  const needle = search.toLowerCase();
   const filtered = cards.filter(
     (c) =>
-      c.front.toLowerCase().includes(search.toLowerCase()) ||
-      c.back.toLowerCase().includes(search.toLowerCase())
+      c.front.toLowerCase().includes(needle) ||
+      c.back.toLowerCase().includes(needle)
   );
 
   return (
@@ -113,8 +102,10 @@ export function CardBrowser({ folderId }: Props) {
       </div>
 
       {filtered.length === 0 && (
-        <div className="placeholder" style={{ marginTop: "40px" }}>
-          {cards.length === 0 ? "No cards in this folder yet." : "No cards match your search."}
+        <div className="placeholder" style={{ marginTop: '40px' }}>
+          {cards.length === 0
+            ? 'No cards in this folder yet.'
+            : 'No cards match your search.'}
         </div>
       )}
 
@@ -142,8 +133,14 @@ export function CardBrowser({ folderId }: Props) {
                 />
               </div>
               <div className="browser-card-actions">
-                <button className="btn-cancel" onClick={cancelEdit}>Cancel</button>
-                <button className="save-btn" onClick={() => saveEdit(card.id)}>Save</button>
+                <button className="btn-cancel" onClick={cancelEdit}>
+                  Cancel
+                </button>
+                <button
+                  className="save-btn"
+                  onClick={() => void saveEdit(card.id)}>
+                  Save
+                </button>
               </div>
             </div>
           ) : (
@@ -153,21 +150,24 @@ export function CardBrowser({ folderId }: Props) {
                 className="browser-card-front"
                 onClick={() =>
                   setExpandedId(expandedId === card.id ? null : card.id)
-                }
-              >
+                }>
                 <div
                   className="browser-card-text"
-                  dangerouslySetInnerHTML={{ __html: renderContent(card.front) }}
+                  dangerouslySetInnerHTML={{
+                    __html: renderContent(card.front, 'code-block'),
+                  }}
                 />
                 <span className="expand-icon">
-                  {expandedId === card.id ? "▲" : "▼"}
+                  {expandedId === card.id ? '▲' : '▼'}
                 </span>
               </div>
 
               {expandedId === card.id && (
                 <div
                   className="browser-card-back"
-                  dangerouslySetInnerHTML={{ __html: renderContent(card.back) }}
+                  dangerouslySetInnerHTML={{
+                    __html: renderContent(card.back, 'code-block'),
+                  }}
                 />
               )}
 
@@ -176,8 +176,14 @@ export function CardBrowser({ folderId }: Props) {
                 <span>Interval: {Math.round(card.interval_days)}d</span>
                 <span>Due: {formatDate(card.due_date)}</span>
                 <div className="browser-card-actions">
-                  <button className="btn-edit" onClick={() => startEdit(card)}>Edit</button>
-                  <button className="btn-delete" onClick={() => handleDelete(card.id)}>Delete</button>
+                  <button className="btn-edit" onClick={() => startEdit(card)}>
+                    Edit
+                  </button>
+                  <button
+                    className="btn-delete"
+                    onClick={() => void handleDelete(card.id)}>
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>

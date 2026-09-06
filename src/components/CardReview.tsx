@@ -1,47 +1,34 @@
 import { useEffect, useState } from 'react';
+import type { ReactElement } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-
-interface Card {
-  id: number;
-  folder_id: number;
-  front: string;
-  back: string;
-  due_date: string;
-  interval_days: number;
-  ease_factor: number;
-  review_count: number;
-}
+import { renderContent } from '../lib/cardContent';
+import type { Card, Rating } from '../types';
 
 interface Props {
   folderId: number;
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+interface RatingOption {
+  value: Rating;
+  label: string;
+  sub: string;
+  className: string;
 }
 
-function renderContent(text: string): string {
-  // Replace code blocks first
-  const withCode = text.replace(
-    /```(\w*)\n?([\s\S]*?)```/g,
-    (_: string, lang: string, code: string) =>
-      `<pre class="card-code-block"><code class="lang-${lang}">${escapeHtml(code.trim())}</code></pre>`
-  );
+const RATING_OPTIONS: ReadonlyArray<RatingOption> = [
+  { value: 1, label: 'Again', sub: 'Forgot', className: 'btn-again' },
+  { value: 2, label: 'Hard', sub: 'Struggled', className: 'btn-hard' },
+  { value: 3, label: 'Good', sub: 'Got it', className: 'btn-good' },
+  { value: 4, label: 'Easy', sub: 'Instant', className: 'btn-easy' },
+];
 
-  // Split on code blocks to avoid adding <br> inside them
-  const parts = withCode.split(/(<pre[\s\S]*?<\/pre>)/g);
-  return parts
-    .map((part) =>
-      part.startsWith('<pre') ? part : part.replace(/\n/g, '<br />')
-    )
-    .join('');
-}
-
-function CardFace({ content, dim }: { content: string; dim?: boolean }) {
+function CardFace({
+  content,
+  dim,
+}: {
+  content: string;
+  dim?: boolean;
+}): ReactElement {
   return (
     <div
       className={`card-face ${dim ? 'card-face-dim' : ''}`}
@@ -50,13 +37,13 @@ function CardFace({ content, dim }: { content: string; dim?: boolean }) {
   );
 }
 
-export function CardReview({ folderId }: Props) {
+export function CardReview({ folderId }: Props): ReactElement {
   const [cards, setCards] = useState<Card[]>([]);
-  const [index, setIndex] = useState(0);
-  const [flipped, setFlipped] = useState(false);
-  const [done, setDone] = useState(false);
+  const [index, setIndex] = useState<number>(0);
+  const [flipped, setFlipped] = useState<boolean>(false);
+  const [done, setDone] = useState<boolean>(false);
 
-  const loadCards = () => {
+  const loadCards = (): void => {
     invoke<Card[]>('get_due_cards', { folderId })
       .then((result) => {
         setCards(result);
@@ -71,31 +58,19 @@ export function CardReview({ folderId }: Props) {
     loadCards();
   }, [folderId]);
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input or textarea
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-
-      if ((e.key === ' ' || e.key === 'Enter') && !flipped) {
-        e.preventDefault();
-        setFlipped(true);
-      }
-      if (flipped) {
-        if (e.key === '1') handleRating(1);
-        if (e.key === '2') handleRating(2);
-        if (e.key === '3') handleRating(3);
-        if (e.key === '4') handleRating(4);
-      }
-    };
-
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [flipped, cards, index]);
-
-  const handleRating = async (rating: number) => {
+  const handleRating = async (rating: Rating): Promise<void> => {
     const card = cards[index];
-    await invoke('submit_review', { cardId: card.id, rating });
+    if (card === undefined) {
+      return;
+    }
+
+    try {
+      await invoke('submit_review', { cardId: card.id, rating });
+    } catch (error) {
+      console.error(error);
+      return;
+    }
+
     const next = index + 1;
     if (next >= cards.length) {
       setDone(true);
@@ -104,6 +79,36 @@ export function CardReview({ folderId }: Props) {
       setFlipped(false);
     }
   };
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent): void => {
+      // Ignore keystrokes aimed at a text field.
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      if ((e.key === ' ' || e.key === 'Enter') && !flipped) {
+        e.preventDefault();
+        setFlipped(true);
+        return;
+      }
+
+      if (flipped) {
+        const option = RATING_OPTIONS.find(
+          (candidate) => String(candidate.value) === e.key
+        );
+        if (option !== undefined) {
+          void handleRating(option.value);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [flipped, cards, index]);
 
   if (done) {
     return (
@@ -114,15 +119,15 @@ export function CardReview({ folderId }: Props) {
     );
   }
 
-  if (cards.length === 0) {
+  const card = cards[index];
+
+  if (card === undefined) {
     return (
       <div className="review-done">
         <p>Loading...</p>
       </div>
     );
   }
-
-  const card = cards[index];
 
   return (
     <div className="review-container">
@@ -157,22 +162,15 @@ export function CardReview({ folderId }: Props) {
         <div className="rating-section">
           <p className="rating-prompt">How well did you recall it?</p>
           <div className="rating-buttons">
-            <button className="btn-again" onClick={() => handleRating(1)}>
-              <span className="btn-rating-label">Again</span>
-              <span className="btn-rating-sub">Forgot</span>
-            </button>
-            <button className="btn-hard" onClick={() => handleRating(2)}>
-              <span className="btn-rating-label">Hard</span>
-              <span className="btn-rating-sub">Struggled</span>
-            </button>
-            <button className="btn-good" onClick={() => handleRating(3)}>
-              <span className="btn-rating-label">Good</span>
-              <span className="btn-rating-sub">Got it</span>
-            </button>
-            <button className="btn-easy" onClick={() => handleRating(4)}>
-              <span className="btn-rating-label">Easy</span>
-              <span className="btn-rating-sub">Instant</span>
-            </button>
+            {RATING_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                className={option.className}
+                onClick={() => void handleRating(option.value)}>
+                <span className="btn-rating-label">{option.label}</span>
+                <span className="btn-rating-sub">{option.sub}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
