@@ -27,11 +27,37 @@
 
 .folder-item {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 7px 12px 7px 0; cursor: pointer; font-size: 0.875rem;
+  padding: 7px 8px 7px 0; cursor: pointer; font-size: 0.875rem;
   transition: background 0.1s;
 }
 .folder-item:hover    { background: #222; }
 .folder-item.selected { background: #1e3a5f; color: #fff; }
+
+.folder-toggle {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 4px;
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.1s;
+}
+.folder-toggle:hover { color: #ccc; }
+.folder-item.selected .folder-toggle { color: #aab; }
+
+/* Keeps leaf folders aligned with folders that have a chevron. */
+.folder-toggle-spacer {
+  width: 14px;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
 
 .folder-name {
   flex: 1;
@@ -515,14 +541,6 @@
   margin-left: 0;
   justify-content: flex-end;
 }
-
-.folder-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 7px 8px 7px 0; cursor: pointer; font-size: 0.875rem;
-  transition: background 0.1s;
-}
-.folder-item:hover    { background: #222; }
-.folder-item.selected { background: #1e3a5f; color: #fff; }
 
 .folder-item-right {
   display: flex;
