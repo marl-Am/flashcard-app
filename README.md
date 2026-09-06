@@ -41,7 +41,10 @@ https://visualstudio.microsoft.com/visual-cpp-build-tools/
 ```
 Install the "Desktop development with C++" workload.
 
-**Tauri CLI**
+**Tauri CLI (optional)**
+
+`@tauri-apps/cli` is already a dev dependency, so `npm install` covers it. Install
+the global CLI only if you want to run `cargo tauri` commands directly:
 ```bash
 cargo install tauri-cli --version "^2.0" --locked
 ```
@@ -63,8 +66,12 @@ npm install
 
 **3. Run in development mode**
 ```bash
-cargo tauri dev
+npm run tauri dev
 ```
+
+This uses the `@tauri-apps/cli` version pinned in `devDependencies`, so the CLI
+stays in step with the project. `cargo tauri dev` works too and uses whatever
+version you installed globally.
 
 The first run compiles SQLite from source via the `bundled` feature and downloads all Rust dependencies. This takes 5–10 minutes. Subsequent runs take under 10 seconds.
 
@@ -73,7 +80,7 @@ The first run compiles SQLite from source via the `bundled` feature and download
 ## Building for Production
 
 ```bash
-cargo tauri build
+npm run tauri build
 ```
 
 Output is placed in `src-tauri/target/release/bundle/`. On Windows this produces an `.msi` installer and a standalone `.exe`.
@@ -94,6 +101,9 @@ flashcard-app/
 │   │   ├── ReviewAll.tsx       # Read-through mode (no SRS effect)
 │   │   ├── StreakCounter.tsx   # Consecutive days counter
 │   │   └── components.css      # All component styles
+│   ├── lib/
+│   │   └── cardContent.ts      # Card text to HTML (escaping, code blocks)
+│   ├── types.ts                # Shared types mirroring the Rust models
 │   ├── App.tsx                 # Root layout and view routing
 │   ├── App.css                 # Global layout styles
 │   └── main.tsx                # React entry point
@@ -148,7 +158,7 @@ Each card tracks its own `interval_days` and `ease_factor`. A card rated Good re
 | `2` | Rate Hard |
 | `3` | Rate Good |
 | `4` | Rate Easy |
-| `←` `→` | Navigate cards (Review All mode) |
+| `←` `→` `↑` `↓` | Navigate cards (Review All mode) |
 
 ---
 
@@ -159,7 +169,7 @@ Each card tracks its own `interval_days` and `ease_factor`. A card rated Good re
 | Desktop framework | Tauri v2 |
 | Backend language | Rust |
 | Database | SQLite via rusqlite (bundled) |
-| Frontend framework | React 18 |
+| Frontend framework | React 19 |
 | Language | TypeScript |
 | Build tool | Vite |
 | SRS algorithm | SM-2 |
